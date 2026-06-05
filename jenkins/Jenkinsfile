@@ -5,41 +5,22 @@ pipeline {
         stage('Unit Tests - Backend') {
             agent {
                 docker {
-                    image 'snakee/golang-junit:1.21'
+                    image 'golang:1.21'
                     reuseNode true
-                    args '-u root'
-
                 }
+            }
+
+            environment {
+                GOCACHE = "${WORKSPACE}/.cache/go-build"
+                GOMODCACHE = "${WORKSPACE}/.cache/go-mod"
+                GOPROXY = "https://proxy.golang.org,direct"
             }
 
             steps {
                 dir('bugtracker-backend') {
                     sh '''
-                        echo "===== DEBUG ====="
-                        whoami || true
-                        id || true
-                        pwd
-                        echo "WORKSPACE=$WORKSPACE"
-                        echo "HOME=$HOME"
-
-                        ls -ld /
-                        ls -ld /tmp || true
-                        ls -ld $WORKSPACE || true
-
-                        export GOCACHE=$WORKSPACE/.cache/go-build
-                        export GOMODCACHE=$WORKSPACE/.cache/go-mod
-
-                        mkdir -p $GOCACHE
-                        mkdir -p $GOMODCACHE
-
-                        echo "===== GO ENV ====="
-                        go env
-
-                        echo "===== CACHE DIRS ====="
-                        ls -ld $GOCACHE
-                        ls -ld $GOMODCACHE
-
-                        echo "===== GO TEST ====="
+                        mkdir -p $GOCACHE $GOMODCACHE
+                        go mod download
                         go test -v ./...
                     '''
                 }
