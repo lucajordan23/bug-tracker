@@ -2,7 +2,6 @@ pipeline {
     agent any
 
     stages {
-
         stage('Unit Tests - Backend') {
             agent {
                 docker {
@@ -15,35 +14,25 @@ pipeline {
             environment {
                 GOCACHE = "${WORKSPACE}/.cache/go-build"
                 GOMODCACHE = "${WORKSPACE}/.cache/go-mod"
+                GOPROXY = "https://proxy.golang.org,direct"
             }
 
             steps {
                 dir('bugtracker-backend') {
                     sh '''
-                        set -e
-
                         mkdir -p $GOCACHE $GOMODCACHE
-
                         go mod download
-
-                        # Install tool per conversione JSON → JUnit
-                        go install github.com/jstemmer/go-junit-report/v2@latest
-                        export PATH=$PATH:$(go env GOPATH)/bin
-
-                        # Test Go in formato compatibile CI
                         go test ./... -v 2>&1 | go-junit-report > test-results.xml
                     '''
                 }
             }
-
             post {
-                always {
+                always{
                     junit 'bugtracker-backend/test-results.xml'
-                    archiveArtifacts artifacts: 'bugtracker-backend/test-results.xml', fingerprint: true
                 }
-            }
+            }  
         }
-
+    
 
         stage('Unit Tests - Frontend') {
             agent {
@@ -52,29 +41,27 @@ pipeline {
                     reuseNode true
                     args '--network=host'
                 }
-            }
-
+             }
             steps {
                 dir('bugtracker-frontend') {
                     sh '''
-                        set -e
+                    node -v
+                    npm -v
 
-                        node -v
-                        npm -v
+                    npm ci --verbose
 
-                        npm ci
+                    ls -la
+                    ls -la node_modules/.bin || true
 
-                        npm test -- --ci
+                    npm test
                     '''
                 }
-            }
-
+            } 
             post {
-                always {
-                    junit 'bugtracker-frontend/junit.xml'
-                    archiveArtifacts artifacts: 'bugtracker-frontend/junit.xml', fingerprint: true
+                always{
+                    junit 'bugtracker-frontend/test-results.xml'
                 }
-            }
-        }
-    }
-}
+            }  
+        }   
+    }   
+}   
