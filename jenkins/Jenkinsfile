@@ -29,22 +29,28 @@ pipeline {
         }
     
 
-        stage('Unit Tests - Frontend'){
-            agent{
-                docker{
-                    image 'node:20-alpine'
+        stage('Unit Tests - Frontend') {
+            agent {
+                docker {
+                    image 'node:20'
                     reuseNode true
                 }
-            
-            }
-            steps{
-                dir('bugtracker-frontend'){
+             }
+            steps {
+                dir('bugtracker-frontend') {
                     sh '''
-                    npm ci
+                    node -v
+                    npm -v
+
+                    npm ci --verbose
+
+                    ls -la
+                    ls -la node_modules/.bin || true
+
                     npm test
                     '''
                 }
-            }
-        }
-    }
- }
+            }   
+        }   
+    }   
+}   
