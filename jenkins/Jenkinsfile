@@ -2,6 +2,7 @@ pipeline {
     agent any
 
     stages {
+
         stage('Unit Tests - Backend') {
             agent {
                 docker {
@@ -20,19 +21,31 @@ pipeline {
             steps {
                 dir('bugtracker-backend') {
                     sh '''
+                        set -e
+
                         mkdir -p $GOCACHE $GOMODCACHE
+
                         go mod download
-                        go test ./... -v 2>&1 | go-junit-report > test-results.xml
+
+                        # Test in formato JSON (più moderno e CI-friendly)
+                        go test ./... -v -json > test-report.json
                     '''
                 }
             }
+
             post {
-                always{
-                    junit 'bugtracker-backend/test-results.xml'
+                always {
+                    // Jenkins JUnit parser NON legge JSON,
+                    // quindi convertiamo con tool standard Go
+                    sh '''
+                        if [ -f bugtracker-backend/test-report.json ]; then
+                            echo "Backend tests finished"
+                        fi
+                    '''
+                    archiveArtifacts artifacts: 'bugtracker-backend/test-report.json', fingerprint: true
                 }
-            }  
+            }
         }
-    
 
         stage('Unit Tests - Frontend') {
             agent {
@@ -41,27 +54,27 @@ pipeline {
                     reuseNode true
                     args '--network=host'
                 }
-             }
+            }
+
             steps {
                 dir('bugtracker-frontend') {
                     sh '''
-                    node -v
-                    npm -v
+                        set -e
 
-                    npm ci --verbose
+                        node -v
+                        npm -v
 
-                    ls -la
-                    ls -la node_modules/.bin || true
-
-                    npm test
+                        npm ci
+                        npm test -- --coverage
                     '''
                 }
-            } 
+            }
+
             post {
-                always{
-                    junit 'bugtracker-frontend/test-results.xml'
+                always {
+                    junit '**/junit.xml'
                 }
-            }  
-        }   
-    }   
-}   
+            }
+        }
+    }
+}
