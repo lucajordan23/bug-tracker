@@ -15,7 +15,6 @@ pipeline {
             environment {
                 GOCACHE = "${WORKSPACE}/.cache/go-build"
                 GOMODCACHE = "${WORKSPACE}/.cache/go-mod"
-                GOPROXY = "https://proxy.golang.org,direct"
             }
 
             steps {
@@ -27,25 +26,24 @@ pipeline {
 
                         go mod download
 
-                        # Test in formato JSON (più moderno e CI-friendly)
-                        go test ./... -v -json > test-report.json
+                        # Install tool per conversione JSON → JUnit
+                        go install github.com/jstemmer/go-junit-report/v2@latest
+                        export PATH=$PATH:$(go env GOPATH)/bin
+
+                        # Test Go in formato compatibile CI
+                        go test ./... -v 2>&1 | go-junit-report > test-results.xml
                     '''
                 }
             }
 
             post {
                 always {
-                    // Jenkins JUnit parser NON legge JSON,
-                    // quindi convertiamo con tool standard Go
-                    sh '''
-                        if [ -f bugtracker-backend/test-report.json ]; then
-                            echo "Backend tests finished"
-                        fi
-                    '''
-                    archiveArtifacts artifacts: 'bugtracker-backend/test-report.json', fingerprint: true
+                    junit 'bugtracker-backend/test-results.xml'
+                    archiveArtifacts artifacts: 'bugtracker-backend/test-results.xml', fingerprint: true
                 }
             }
         }
+
 
         stage('Unit Tests - Frontend') {
             agent {
@@ -65,14 +63,16 @@ pipeline {
                         npm -v
 
                         npm ci
-                        npm test -- --coverage
+
+                        npm test -- --ci
                     '''
                 }
             }
 
             post {
                 always {
-                    junit '**/junit.xml'
+                    junit 'bugtracker-frontend/junit.xml'
+                    archiveArtifacts artifacts: 'bugtracker-frontend/junit.xml', fingerprint: true
                 }
             }
         }
