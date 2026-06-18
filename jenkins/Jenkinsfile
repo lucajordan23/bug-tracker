@@ -3,6 +3,17 @@ pipeline {
 
     stages {
 
+        stage('Debug') {
+            steps {
+                sh '''
+                    hostname
+                    whoami
+                    pwd
+                    ip addr || true
+                '''
+            }
+        }
+
         stage('Execute Unit Tests') {
             parallel {
 
