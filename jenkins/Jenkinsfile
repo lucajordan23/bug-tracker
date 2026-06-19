@@ -2,6 +2,13 @@ pipeline {
     agent any
 
     stages {
+        stage('Build Backend') {
+            steps {
+                sh '''
+                    docker build --network=host -t backend .
+                '''
+            }
+        }
 
         stage('Debug') {
             steps {

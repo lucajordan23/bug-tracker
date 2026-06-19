@@ -1,27 +1,25 @@
-FROM golang:1.21-alpine
+FROM golang:1.21
 
 WORKDIR /app
 
-# Create mount point directory with proper permissions
-RUN mkdir -p /data && chmod 777 /data
+# install base tools (Debian-based image → NO apk)
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    git \
+    wget \
+ && rm -rf /var/lib/apt/lists/*
 
-# Install wget for healthcheck
-RUN apk add --no-cache wget
-
-# Copy go mod files
+# copy go modules first (cache layer)
 COPY go.mod go.sum ./
-
-# Download dependencies
 RUN go mod download
 
-# Copy source code
+# copy source
 COPY . .
 
-# Build the application
+# build
 RUN go build -o main cmd/bugtracker/main.go
 
-# Expose port 8080
+# runtime port
 EXPOSE 8080
 
-# Run the binary
-CMD ["./main"] 
+CMD ["./main"]
