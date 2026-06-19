@@ -12,81 +12,57 @@ pipeline {
         stage('Debug') {
             steps {
                 sh '''
-                    hostname
-                    whoami
+                    echo "WORKSPACE:"
                     pwd
                     ls -la
                 '''
             }
         }
 
-        stage('Execute Unit Tests') {
+        stage('Build Backend') {
+            steps {
+                sh '''
+                    docker build -t backend .
+                '''
+            }
+        }
+
+        stage('Unit Tests') {
             parallel {
 
-                stage('Unit Tests - Backend') {
-                    agent {
-                        docker {
-                            image 'golang:1.21'
-                            reuseNode true
-                            args '--network=host'
-                        }
-                    }
-
-                    environment {
-                        GOCACHE = "${WORKSPACE}/.cache/go-build"
-                        GOMODCACHE = "${WORKSPACE}/.cache/go-mod"
-                        GOPROXY = "https://proxy.golang.org,direct"
-                    }
-
+                stage('Backend Tests') {
+                    agent any
                     steps {
-                        dir('bugtracker-backend') {
-                            sh '''
-                                mkdir -p $GOCACHE $GOMODCACHE
-
-                                go install github.com/jstemmer/go-junit-report/v2@latest
-                                export PATH=$PATH:$(go env GOPATH)/bin
-
-                                go mod download
-                                go test ./... -v 2>&1 | go-junit-report > test-results.xml
-                            '''
-                        }
+                        sh '''
+                            docker run --rm \
+                                -v $WORKSPACE:/app \
+                                -w /app/bugtracker-backend \
+                                golang:1.21 \
+                                sh -c "go test ./..."
+                        '''
                     }
                 }
 
-                stage('Unit Tests - Frontend') {
-                    agent {
-                        docker {
-                            image 'node:20'
-                            reuseNode true
-                            args '--network=host'
-                        }
-                    }
-
+                stage('Frontend Tests') {
+                    agent any
                     steps {
-                        dir('bugtracker-frontend') {
-                            sh '''
-                                node -v
-                                npm -v
-                                npm ci
-                                npm test
-                            '''
-                        }
+                        sh '''
+                            docker run --rm \
+                                -v $WORKSPACE:/app \
+                                -w /app/bugtracker-frontend \
+                                node:20 \
+                                sh -c "npm ci && npm test"
+                        '''
                     }
                 }
-
             }
         }
 
         stage('Launch Application') {
-            agent {
-                docker {
-                    image 'docker:27.5.1'
-                    reuseNode true
-                    args '-v /var/run/docker.sock:/var/run/docker.sock -u 0'
-                }
-            }
             steps {
-                sh 'docker compose up --build -d'
+                sh '''
+                    docker compose up -d --build
+                '''
             }
         }
     }
