@@ -2,11 +2,10 @@ pipeline {
     agent any
 
     stages {
-        stage('Build Backend') {
+
+        stage('Checkout') {
             steps {
-                sh '''
-                    docker build --network=host -t backend .
-                '''
+                checkout scm
             }
         }
 
@@ -16,7 +15,7 @@ pipeline {
                     hostname
                     whoami
                     pwd
-                    ip addr || true
+                    ls -la
                 '''
             }
         }
@@ -48,28 +47,8 @@ pipeline {
                                 export PATH=$PATH:$(go env GOPATH)/bin
 
                                 go mod download
-
                                 go test ./... -v 2>&1 | go-junit-report > test-results.xml
-
-                                # Generate coverage report
-                                go test -coverprofile=coverage.out -covermode=atomic ./...
-                                go tool cover -html=coverage.out -o coverage.html
-
-                                mkdir -p reports
-                                mv coverage.html reports/
                             '''
-                        }
-                    }
-
-                    post {
-                        always {
-                            junit 'bugtracker-backend/test-results.xml'
-
-                            publishHTML target: [
-                                reportDir: 'bugtracker-backend/reports',
-                                reportFiles: 'coverage.html',
-                                reportName: 'Backend Coverage Report'
-                            ]
                         }
                     }
                 }
@@ -88,29 +67,9 @@ pipeline {
                             sh '''
                                 node -v
                                 npm -v
-
-                                npm ci --verbose
-
-                                ls -la
-                                ls -la node_modules/.bin || true
-
+                                npm ci
                                 npm test
-
-                                mkdir -p reports
-                                mv coverage reports/
                             '''
-                        }
-                    }
-
-                    post {
-                        always {
-                            junit 'bugtracker-frontend/test-results.xml'
-
-                            publishHTML target: [
-                                reportDir: 'bugtracker-frontend/reports/coverage',
-                                reportFiles: 'index.html',
-                                reportName: 'Frontend Coverage Report'
-                            ]
                         }
                     }
                 }
@@ -118,23 +77,22 @@ pipeline {
             }
         }
 
-        stage('Launch Application'){
-            agent{
-                docker{
+        stage('Launch Application') {
+            agent {
+                docker {
                     image 'docker:27.5.1'
                     reuseNode true
                     args '-v /var/run/docker.sock:/var/run/docker.sock -u 0'
                 }
             }
-            steps{
+            steps {
                 sh 'docker compose up --build -d'
             }
         }
-
     }
 
-    post{
-        always{
+    post {
+        always {
             cleanWs()
         }
     }
