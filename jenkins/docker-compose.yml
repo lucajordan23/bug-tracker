@@ -18,11 +18,6 @@ services:
       - DOCKER_HOST=unix:///var/run/docker.sock
       - JAVA_OPTS=-Dhudson.model.DirectoryBrowserSupport.CSP="default-src 'self' 'unsafe-inline';"
 
-    # 🔴 FIX DNS (risolve "Could not resolve host: github.com")
-    dns:
-      - 8.8.8.8
-      - 1.1.1.1
-
     networks:
       - jenkins
 
